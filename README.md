@@ -1,0 +1,42 @@
+# MLflow model registry stack
+
+Repository 2/3 của capstone MLOps. Repo này sở hữu **dịch vụ có trạng thái**:
+
+- MLflow Tracking Server/UI và Model Registry.
+- PostgreSQL lưu experiment, run, parameter, metric và model metadata.
+- MinIO cung cấp S3-compatible storage cho model artifact và DVC remote.
+
+Tách repo này khỏi training vì registry có vòng đời, backup, credential và quyền truy cập khác
+với source code mô hình. Training job là client có thể thay đổi thường xuyên; registry phải ổn định.
+
+## Chạy local
+
+```bash
+cp .env.example .env
+# đổi toàn bộ password trong .env
+docker compose up -d --build --wait
+curl http://localhost:5000/health
+```
+
+- MLflow UI: http://localhost:5000
+- MinIO API: http://localhost:9000
+- MinIO Console: http://localhost:9001
+
+MLflow dùng `--artifacts-destination s3://mlflow`, tức client upload/download artifact qua MLflow
+proxy. Vì vậy training/inference client chỉ cần truy cập MLflow; credential S3 được giữ ở server.
+DVC là client riêng nên dùng bucket `dvc` và cần credential MinIO qua biến môi trường.
+
+## Dữ liệu bền vững
+
+Hai named volume giữ PostgreSQL và MinIO khi container restart. `docker compose down` không xóa
+dữ liệu; `docker compose down -v` có xóa và chỉ nên dùng để reset lab.
+
+## Bảo mật
+
+Giá trị mặc định chỉ phục vụ local demo. Trước khi public/deploy:
+
+1. Đổi password và lưu bằng GitHub/Kubernetes Secret hoặc secret manager.
+2. Không public trực tiếp PostgreSQL/MinIO; chỉ expose qua network cần thiết.
+3. Bật TLS và authentication cho MLflow khi ra ngoài máy local.
+4. Thiết lập backup PostgreSQL và versioning/lifecycle cho object storage.
+
