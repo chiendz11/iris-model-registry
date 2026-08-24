@@ -50,7 +50,7 @@ Giá trị mặc định chỉ phục vụ local demo. Trước khi public/deplo
 3. Bật TLS và authentication cho MLflow khi ra ngoài máy local.
 4. Thiết lập backup PostgreSQL và versioning/lifecycle cho object storage.
 
-GitHub repository variables cho CD: `AWS_REGION`, `GITHUB_ACTIONS_ROLE_ARN`,
+GitHub environment `prod` variables cho CD: `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`,
 `MLFLOW_ECR_REPOSITORY`, `GITOPS_REPOSITORY`; secret `GITOPS_TOKEN`.
 
 Runbook hạ tầng nằm trong repo `iris-infrastructure`.

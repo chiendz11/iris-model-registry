@@ -7,12 +7,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REPOSITORY: ${{ vars.MLFLOW_ECR_REPOSITORY }}
-  GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY }}
 
 jobs:
   compose-smoke-test:
@@ -34,11 +28,19 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [compose-smoke-test]
     runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY: ${{ vars.MLFLOW_ECR_REPOSITORY }}
+      GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY }}
     steps:
       - uses: actions/checkout@v6
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.GITHUB_ACTIONS_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -49,7 +51,7 @@ jobs:
           docker push "${IMAGE}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
       - name: Checkout production desired state
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
           token: ${{ secrets.GITOPS_TOKEN }}
