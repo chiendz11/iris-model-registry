@@ -7,6 +7,12 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.MLFLOW_ECR_REPOSITORY }}
+  GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY }}
 
 jobs:
   compose-smoke-test:
@@ -24,3 +30,43 @@ jobs:
       - if: always()
         run: docker compose down -v
 
+  publish-and-propose:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [compose-smoke-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push MLflow
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:${{ github.sha }}"
+          docker build -t "${IMAGE}" .
+          docker push "${IMAGE}"
+          echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
+      - name: Checkout production desired state
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPOSITORY }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+      - name: Open GitOps deployment pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+        run: |
+          cd gitops
+          BRANCH="deploy/mlflow-${{ github.sha }}-${{ github.run_attempt }}"
+          git checkout -b "${BRANCH}"
+          sed -i -E "s|newName: .*|newName: ${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}|; s|newTag: .*|newTag: ${{ github.sha }}|" environments/production/model-registry/kustomization.yaml
+          git config user.name "iris-mlops-bot"
+          git config user.email "iris-mlops-bot@users.noreply.github.com"
+          git add -- environments/production/model-registry/kustomization.yaml
+          git commit -m "deploy(mlflow): ${{ github.sha }}"
+          git push origin "${BRANCH}"
+          gh pr create --repo "${GITOPS_REPOSITORY}" --base main --head "${BRANCH}" \
+            --title "deploy(mlflow): ${{ github.sha }}" \
+            --body "Promote MLflow image built from ${{ github.repository }}@${{ github.sha }}."
