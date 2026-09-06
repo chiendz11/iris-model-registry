@@ -51,6 +51,8 @@ Giá trị mặc định chỉ phục vụ local demo. Trước khi public/deplo
 4. Thiết lập backup PostgreSQL và versioning/lifecycle cho object storage.
 
 GitHub environment `prod` variables cho CD: `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`,
-`MLFLOW_ECR_REPOSITORY`, `GITOPS_REPOSITORY`; secret `GITOPS_TOKEN`.
+`MLFLOW_ECR_REPOSITORY`, `GITOPS_REPOSITORY`, `GITOPS_APP_CLIENT_ID`; secret
+`GITOPS_APP_PRIVATE_KEY`. Workflow đổi private key thành installation token ngắn hạn, scope duy nhất
+repo `iris-gitops` với quyền Contents/Pull requests write; không dùng PAT dài hạn.
 
 Runbook hạ tầng nằm trong repo `iris-infrastructure`.

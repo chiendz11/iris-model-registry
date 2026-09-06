@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
@@ -12,7 +13,7 @@ jobs:
   compose-smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - run: docker compose config --quiet
       - run: docker compose build mlflow
       - run: docker compose up -d --wait
@@ -23,6 +24,17 @@ jobs:
         run: docker compose logs
       - if: always()
         run: docker compose down -v
+
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: compose-smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require validation to pass
+        env:
+          COMPOSE_SMOKE_RESULT: ${{ needs.compose-smoke-test.result }}
+        run: test "${COMPOSE_SMOKE_RESULT}" = success
 
   publish-and-propose:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -37,28 +49,39 @@ jobs:
       ECR_REPOSITORY: ${{ vars.MLFLOW_ECR_REPOSITORY }}
       GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
       - name: Build and push MLflow
         run: |
           IMAGE="${{ steps.ecr.outputs.registry }}/${ECR_REPOSITORY}:${{ github.sha }}"
           docker build -t "${IMAGE}" .
           docker push "${IMAGE}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
+      - name: Mint short-lived GitOps pull-request token
+        id: gitops-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.GITOPS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: iris-gitops
+          permission-contents: write
+          permission-pull-requests: write
       - name: Checkout production desired state
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
-          token: ${{ secrets.GITOPS_TOKEN }}
+          token: ${{ steps.gitops-token.outputs.token }}
+          persist-credentials: false
           path: gitops
       - name: Open GitOps deployment pull request
         env:
-          GH_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+          GH_TOKEN: ${{ steps.gitops-token.outputs.token }}
         run: |
           cd gitops
           BRANCH="deploy/mlflow-${{ github.sha }}-${{ github.run_attempt }}"
@@ -68,6 +91,7 @@ jobs:
           git config user.email "iris-mlops-bot@users.noreply.github.com"
           git add -- environments/production/model-registry/kustomization.yaml
           git commit -m "deploy(mlflow): ${{ github.sha }}"
+          gh auth setup-git
           git push origin "${BRANCH}"
           gh pr create --repo "${GITOPS_REPOSITORY}" --base main --head "${BRANCH}" \
             --title "deploy(mlflow): ${{ github.sha }}" \
