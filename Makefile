@@ -1,21 +1,26 @@
-.PHONY: up down logs status validate clean
+COMPOSE_ENV ?= config/local.env.example
+COMPOSE := docker compose --env-file $(COMPOSE_ENV) --file compose/compose.yaml
+
+.PHONY: up down logs status validate test clean
 
 up:
-	docker compose up -d --build
+	$(COMPOSE) up -d --build
 
 down:
-	docker compose down
+	$(COMPOSE) down
 
 logs:
-	docker compose logs -f mlflow
+	$(COMPOSE) logs -f mlflow
 
 status:
-	docker compose ps
+	$(COMPOSE) ps
 
 validate:
-	docker compose config --quiet
-	docker build -t iris-mlflow-registry:local .
+	$(COMPOSE) config --quiet
+	docker build --file runtime/Dockerfile --tag iris-mlflow-registry:local .
+
+test:
+	python -m unittest discover -s tests -p 'test_*.py'
 
 clean:
-	@echo "This deletes local PostgreSQL and MinIO volumes. Run: docker compose down -v"
-
+	@echo "This deletes local PostgreSQL and MinIO volumes. Run: $(COMPOSE) down -v"
