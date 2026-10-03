@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 
@@ -30,6 +31,24 @@ class RepositoryBoundaryTest(unittest.TestCase):
     def test_repository_contains_no_production_deployment_manifests(self) -> None:
         self.assertFalse((ROOT / "environments").exists())
         self.assertFalse((ROOT / "terraform").exists())
+
+    def test_production_mlflow_hosts_cover_kubernetes_tracking_uri_port(self) -> None:
+        config = json.loads(
+            (ROOT / "release/production-runtime-config.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        allowed_hosts = set(config["MLFLOW_ALLOWED_HOSTS"].split(","))
+        kubernetes_hosts = {
+            "mlflow",
+            "mlflow.mlops.svc",
+            "mlflow.mlops.svc.cluster.local",
+        }
+
+        self.assertNotIn("*", allowed_hosts)
+        for host in kubernetes_hosts:
+            self.assertIn(host, allowed_hosts)
+            self.assertIn(f"{host}:5000", allowed_hosts)
 
 
 if __name__ == "__main__":
