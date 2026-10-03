@@ -84,6 +84,8 @@ GitOps so khớp version + SHA-256 với schema đã được phê duyệt. Imag
 config hiện hành nên không thể bỏ qua required key. Secret file chỉ chứa AWS Secrets Manager
 reference, không chứa credential. RDS username/password vẫn là platform-owned `ExternalSecret`,
 không đi qua workload intent.
+Danh sách allowed hosts production giữ cả hostname Kubernetes và biến thể `:5000`, vì MLflow
+kiểm tra toàn bộ HTTP Host header; Python tracking client gửi port từ `MLFLOW_TRACKING_URI`.
 Khi nâng schema, thêm `runtime-config-vN.schema.json` mới và bản được review tương ứng ở GitOps,
 sau đó mới đổi con trỏ; không mutate contract version cũ đã phát hành.
 
