@@ -77,8 +77,9 @@ Nếu chỉ schema hoặc `release/production-runtime-config.json` đổi, CI g�
 nhánh này publish image mới. Khi image yêu cầu config mới, app PR đổi cả code và schema/value nên CI
 phát một workload intent atomic chứa cả hai. Tests/docs không tạo production release.
 
-`release/config-schema-version.txt` chọn schema active trong `contracts/` (hiện là `v1`). Schema v1
-bắt buộc explicit allowed hosts/CORS và giới hạn số worker. CI validate values trước khi gửi;
+`release/config-schema-version.txt` chọn schema active trong `contracts/` (hiện là `v2`). Schema v2
+bắt buộc explicit allowed hosts/CORS, giới hạn số worker và tắt MLflow background job execution vì
+platform này chỉ dùng tracking/model registry. CI validate values trước khi gửi;
 GitOps so khớp version + SHA-256 với schema đã được phê duyệt. Image-only cũng bị validate với
 config hiện hành nên không thể bỏ qua required key. Secret file chỉ chứa AWS Secrets Manager
 reference, không chứa credential. RDS username/password vẫn là platform-owned `ExternalSecret`,
