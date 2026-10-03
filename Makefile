@@ -23,4 +23,4 @@ test:
 	python -m unittest discover -s tests -p 'test_*.py'
 
 clean:
-	@echo "This deletes local PostgreSQL and MinIO volumes. Run: $(COMPOSE) down -v"
+	@echo "This deletes local PostgreSQL and LocalStack volumes. Run: $(COMPOSE) down -v"

@@ -11,7 +11,7 @@ iris-model-registry
 ├── config/              documented runtime interface and local example values
 ├── contracts/           versioned non-secret runtime-config schema
 ├── release/             reviewed production config and secret references
-├── compose/             PostgreSQL + MinIO + MLflow for local/CI only
+├── compose/             PostgreSQL + LocalStack S3 + MLflow for local/CI only
 ├── tests/               health and repository-boundary checks
 ├── requirements.txt     pinned runtime dependencies
 └── .github/workflows/   test, build, scan, publish and release intent
@@ -31,8 +31,7 @@ curl http://localhost:5000/health
 ```
 
 - MLflow UI: <http://localhost:5000>
-- MinIO API: <http://localhost:9000>
-- MinIO Console: <http://localhost:9001>
+- LocalStack S3 gateway: <http://localhost:4566>
 
 MLflow dùng proxied artifact storage (`--artifacts-destination s3://mlflow`), nên training và
 inference client chỉ nói chuyện với MLflow. DVC là client riêng dùng bucket local `dvc`.
